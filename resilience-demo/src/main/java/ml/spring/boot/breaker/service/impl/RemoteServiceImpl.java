@@ -10,9 +10,18 @@ public class RemoteServiceImpl implements RemoteService {
 
     private int id;
 
+
+    /**
+     * 模拟远端服务
+     * id < 10  抛出运行时异常
+     * == 10 将当前线程停止5秒
+     * 其他返回线程name + id
+     * @return
+     */
     @Override
     public String remoteAPI() {
-        System.out.println("i am remote service... ..");
+        String tName = Thread.currentThread().getName();
+        log.info("{}: i am remote service... ..", tName);
         if (this.id < 10) {
             throw new RuntimeException("id 非法");
         }
@@ -24,7 +33,7 @@ public class RemoteServiceImpl implements RemoteService {
                 return "exception " + id;
             }
         }
-        return "hello " + id;
+        return tName+ "--->" + id;
     }
 
     @Override
