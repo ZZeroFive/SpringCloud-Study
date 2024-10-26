@@ -31,6 +31,8 @@ public class CircuitBreakerConfig {
                 .waitDurationInOpenState(Duration.ofSeconds(10)) // open 状态等待10秒才会转换成half open 默认不自动转换，只是一个门槛
                 .automaticTransitionFromOpenToHalfOpenEnabled(true) // 自动从开启状态转换为半开启状态
                 .permittedNumberOfCallsInHalfOpenState(20) // 半开状态下允许的调用个数
+                .slowCallRateThreshold(50) // 慢调用降级阈值
+                .slowCallDurationThreshold(Duration.ofSeconds(3)) // 慢调用持续时间
                 .build();
 
         CircuitBreaker circuitBreaker = CircuitBreaker.of("countBasedBreaker", config);

@@ -60,7 +60,8 @@ public class CircuitBreakImpl implements LocalService {
     }
 
     private String fallback(Throwable throwable) {
-        log.error("断路器降级异常信息: {}", JSON.toJSONString(throwable));
+        // 错误降级 和 延迟降级都会执行该逻辑
+        log.error("执行断路器降级逻辑: {}", JSON.toJSONString(throwable));
         return "降级结果";
     }
 
