@@ -2,8 +2,10 @@ package ml.spring.boot.breaker.service.impl;
 
 import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.timelimiter.TimeLimiter;
+import io.vavr.CheckedRunnable;
 import io.vavr.control.Try;
 import lombok.extern.slf4j.Slf4j;
 import ml.spring.boot.breaker.service.LocalService;
@@ -30,6 +32,9 @@ public class CircuitBreakImpl implements LocalService {
 
     @Autowired
     private TimeLimiter limiter;
+
+    @Autowired
+    private RateLimiter rateLimiter;
 
     /**
      * 只通过断路器 装饰调用
@@ -110,6 +115,22 @@ public class CircuitBreakImpl implements LocalService {
         return supplier.get();
     }
 
+    /**
+     * 演示速率限制：在一定时间只允许一定量的请求通过
+     * 超过的请求需要阻塞等待其他请求完成
+     * @return
+     */
+    private String onlyRateLimiter() {
+        log.info("通过速率限制器装饰...");
+        // 装饰服务调用
+        CheckedRunnable restrictedCall = RateLimiter.decorateCheckedRunnable(rateLimiter, () -> {log.info("调用什么东西");});
+        // 尝试调用
+        Try.run(restrictedCall)
+                .andThenTry(restrictedCall)
+                .onFailure(throwable -> log.info("再次调用前需要等待"));
+        return "";
+    }
+
     private String fallback(Throwable throwable) {
         // 错误降级 和 延迟降级都会执行该逻辑
         log.error("执行断路器降级逻辑: {}", JSON.toJSONString(throwable));
@@ -124,7 +145,8 @@ public class CircuitBreakImpl implements LocalService {
         // return diyCircuitBreaker();
         // return reTryOnly();
         // return retryWithCircuitBreaker();
-        return onlyLimitTime();
+        // return onlyLimitTime();
+        return onlyRateLimiter();
     }
 
 

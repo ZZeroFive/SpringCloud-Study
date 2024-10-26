@@ -3,6 +3,8 @@ package ml.spring.boot.breaker.config;
 
 import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.timelimiter.TimeLimiter;
@@ -96,6 +98,27 @@ public class CircuitBreakerConfig {
                 .onSuccess(e -> log.info("限时器： 远程调用执行成功!"))
                 .onTimeout(e -> log.info("限时器： 远程调用超出限定时间!"));
         return limiter;
+    }
+
+    /**
+     * 速率限制: 保护系统过载
+     * @return
+     */
+    @Bean
+    @Qualifier("rateLimiter")
+    public RateLimiter rateLimiter() {
+        RateLimiterConfig config = RateLimiterConfig.custom()
+                .limitForPeriod(1) // 周期内最大的允许数
+                .limitRefreshPeriod(Duration.ofSeconds(1)) // 限流的时间周期 10秒内允许2个
+                .timeoutDuration(Duration.ofSeconds(5)) // 达到限流的速率后，调用者需要等待时间是多久
+                .build();
+
+        RateLimiter rateLimiter = RateLimiter.of("rateLimiter", config);
+        rateLimiter.getEventPublisher()
+                .onSuccess(event -> {log.info("【速率限制RateLimiter】监听到速率限制: 被成功调用！");})
+                .onFailure(event -> log.info("【速率限制RateLimiter】监听到速率限制： 调用失败！"));
+
+        return rateLimiter;
     }
 
 

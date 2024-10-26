@@ -21,7 +21,7 @@ public class RemoteServiceImpl implements RemoteService {
     @Override
     public String remoteAPI() {
         String tName = Thread.currentThread().getName();
-        log.info("{}: i am remote service... ..", tName);
+        log.info("{}: 请求到达远端服务... ..", tName);
         if (this.id < 10) {
             throw new RuntimeException("id 非法");
         }
