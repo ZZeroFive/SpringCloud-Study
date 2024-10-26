@@ -2,6 +2,8 @@ package ml.spring.boot.breaker.config;
 
 
 import com.alibaba.fastjson2.JSON;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
@@ -101,7 +103,8 @@ public class CircuitBreakerConfig {
     }
 
     /**
-     * 速率限制: 保护系统过载
+     * 限流： 限制一段时间内允许多少请求通过，多余的请求要么延迟执行，要么拒绝执行
+     * 速率限制: 保护系统，防止过载引发问题
      * @return
      */
     @Bean
@@ -121,6 +124,31 @@ public class CircuitBreakerConfig {
         return rateLimiter;
     }
 
+    /**
+     * 限流： 限制某一方法同时可以被多少线程调用
+     * 瞬时并发限制：保护系统，防止过载引发问题
+     * @return
+     */
+    @Bean
+    @Qualifier("bulkhead")
+    public Bulkhead bulkhead() {
+        // 这是spring boot提供较为严格的限流 瞬时允许25个请求
+        // spring boot提供的另外一个较为宽松的限流 20ms允许50个请求
 
+        // 这里设置0秒5个请求
+        BulkheadConfig config = BulkheadConfig.custom()
+                .maxConcurrentCalls(1)
+                .maxWaitDuration(Duration.ZERO)
+                .fairCallHandlingStrategyEnabled(false)
+                .build();
+
+        Bulkhead bulkhead = Bulkhead.of("ristrictBulkhead", config);
+
+        bulkhead
+                .getEventPublisher()
+                .onCallPermitted(event -> log.info("【舱壁限流】允许访问 {}", JSON.toJSONString(event)))
+                .onCallRejected(event -> log.info("【舱壁限流】 拒绝访问 {}", JSON.toJSONString(event)));
+        return bulkhead;
+    }
 
 }

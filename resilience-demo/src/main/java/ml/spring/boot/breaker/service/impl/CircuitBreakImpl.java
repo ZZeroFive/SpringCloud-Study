@@ -1,10 +1,12 @@
 package ml.spring.boot.breaker.service.impl;
 
 import com.alibaba.fastjson2.JSON;
+import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.timelimiter.TimeLimiter;
+import io.vavr.CheckedFunction0;
 import io.vavr.CheckedRunnable;
 import io.vavr.control.Try;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +37,9 @@ public class CircuitBreakImpl implements LocalService {
 
     @Autowired
     private RateLimiter rateLimiter;
+
+    @Autowired
+    private Bulkhead bulkhead;
 
     /**
      * 只通过断路器 装饰调用
@@ -131,6 +136,34 @@ public class CircuitBreakImpl implements LocalService {
         return "";
     }
 
+    /**
+     * 舱壁模式限流
+     * 严格的限流模式：瞬时25个并发
+     * @return
+     */
+    private String onlyBulkhead() {
+        // 装饰callable
+        Callable<String> decorateSupplier = Bulkhead.decorateCallable(bulkhead, remoteService::remoteAPI);
+        // 线程池调用
+        ExecutorService pool =  Executors.newFixedThreadPool(5);
+        Future<String>[] result = new Future[5];
+        for (int i = 0; i < 5; i++) {
+            // 传递参数10 调用没结束 其他线程进来会被拒绝或者等待
+            // 传递参数>10 可能无法达到0秒25个并发 即并发量都会满足要求
+            // CompletableFuture.runAsync(Try.ofSupplier(decorateSupplier)::get);
+            result[i] = pool.submit(decorateSupplier);
+        }
+        // 拿到结果
+        for (Future<String> future : result) {
+            try {
+                log.info("服务调用结果: {}", future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return "";
+    }
+
     private String fallback(Throwable throwable) {
         // 错误降级 和 延迟降级都会执行该逻辑
         log.error("执行断路器降级逻辑: {}", JSON.toJSONString(throwable));
@@ -146,7 +179,8 @@ public class CircuitBreakImpl implements LocalService {
         // return reTryOnly();
         // return retryWithCircuitBreaker();
         // return onlyLimitTime();
-        return onlyRateLimiter();
+        // return onlyRateLimiter();
+        return onlyBulkhead();
     }
 
 
