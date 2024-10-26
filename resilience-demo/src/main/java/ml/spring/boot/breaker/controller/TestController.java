@@ -28,13 +28,13 @@ public class TestController {
 
 
     @GetMapping("/direct/call/{id}")
-    public String directCall(@PathVariable("id") int id) {
+    public String directCall(@PathVariable("id") int id) throws Exception {
         // http://localhost:8080/direct/call/4  10 14
         return directCallImpl.callRemote(id);
     }
 
     @GetMapping("/circuit/call/{id}")
-    public String onlyCircuitCall(@PathVariable("id") int id) {
+    public String onlyCircuitCall(@PathVariable("id") int id) throws Exception {
         // http://localhost:8080/direct/call/4  10 14
         return circuitBreakImpl.callRemote(id);
     }

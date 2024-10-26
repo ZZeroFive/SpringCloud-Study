@@ -2,18 +2,17 @@ package ml.spring.boot.breaker.service.impl;
 
 import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.vavr.control.Try;
 import lombok.extern.slf4j.Slf4j;
-import ml.spring.boot.breaker.listener.CircuitBreakerStateChangeListener;
 import ml.spring.boot.breaker.service.LocalService;
 import ml.spring.boot.breaker.service.RemoteService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -28,6 +27,9 @@ public class CircuitBreakImpl implements LocalService {
 
     @Autowired
     private Retry retry;
+
+    @Autowired
+    private TimeLimiter limiter;
 
     /**
      * 只通过断路器 装饰调用
@@ -96,6 +98,18 @@ public class CircuitBreakImpl implements LocalService {
                 .get();
     }
 
+    private String onlyLimitTime() throws ExecutionException, InterruptedException {
+        log.info("通过限时器装饰...");
+        // 创建定时线程池 大小为3
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
+        // limiter要求supplier返回future子类
+        // 所以借助JDK CompletableFuture执行调用远程服务，会返回一个Future对象
+        // 这个是异步运算
+        CompletableFuture<String> supplier = limiter.executeCompletionStage(scheduler, ()-> CompletableFuture.supplyAsync(remoteService::remoteAPI)).toCompletableFuture();
+
+        return supplier.get();
+    }
+
     private String fallback(Throwable throwable) {
         // 错误降级 和 延迟降级都会执行该逻辑
         log.error("执行断路器降级逻辑: {}", JSON.toJSONString(throwable));
@@ -104,12 +118,13 @@ public class CircuitBreakImpl implements LocalService {
 
 
     @Override
-    public String callRemote(int id) {
+    public String callRemote(int id) throws Exception {
         remoteService.setId(id);
         // return onlyCircuitBreak();
         // return diyCircuitBreaker();
         // return reTryOnly();
-        return retryWithCircuitBreaker();
+        // return retryWithCircuitBreaker();
+        return onlyLimitTime();
     }
 
 

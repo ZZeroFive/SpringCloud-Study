@@ -5,6 +5,8 @@ import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import io.github.resilience4j.timelimiter.TimeLimiter;
+import io.github.resilience4j.timelimiter.TimeLimiterConfig;
 import lombok.extern.slf4j.Slf4j;
 import ml.spring.boot.breaker.listener.CircuitBreakerStateChangeListener;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,6 +77,27 @@ public class CircuitBreakerConfig {
 
         return retry;
     }
+
+    /**
+     * 限制调用执行的时间
+     * @return
+     */
+    @Bean
+    @Qualifier("timeLimiter")
+    public TimeLimiter timeLimiter() {
+        TimeLimiterConfig config = TimeLimiterConfig.custom()
+                .timeoutDuration(Duration.ofSeconds(1)) // 1秒调用
+                .cancelRunningFuture(true) // 取消运行?
+                .build();
+        TimeLimiter limiter = TimeLimiter.of("timeLimiter", config);
+
+        limiter.getEventPublisher()
+                .onError(e -> {log.info("限时器：执行失败! {}", JSON.toJSONString(e));})
+                .onSuccess(e -> log.info("限时器： 远程调用执行成功!"))
+                .onTimeout(e -> log.info("限时器： 远程调用超出限定时间!"));
+        return limiter;
+    }
+
 
 
 }
