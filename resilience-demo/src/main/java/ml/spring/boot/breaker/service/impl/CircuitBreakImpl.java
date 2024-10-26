@@ -1,5 +1,6 @@
 package ml.spring.boot.breaker.service.impl;
 
+import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.retry.Retry;
@@ -54,8 +55,13 @@ public class CircuitBreakImpl implements LocalService {
         // 返回结果
         return Try
                 .ofSupplier(decorateSupplier)
-                .recover(e -> "降级结果~")
+                .recover(this::fallback)
                 .get();
+    }
+
+    private String fallback(Throwable throwable) {
+        log.error("断路器降级异常信息: {}", JSON.toJSONString(throwable));
+        return "降级结果";
     }
 
 
