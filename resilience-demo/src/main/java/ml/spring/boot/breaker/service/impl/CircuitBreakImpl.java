@@ -26,6 +26,9 @@ public class CircuitBreakImpl implements LocalService {
     @Autowired
     private CircuitBreaker circuitBreaker;
 
+    @Autowired
+    private Retry retry;
+
     /**
      * 只通过断路器 装饰调用
      * @return
@@ -59,6 +62,22 @@ public class CircuitBreakImpl implements LocalService {
                 .get();
     }
 
+    /**
+     * 只对接口进行retry
+     * 只会不停得retry 对于retry失败会返回降级结果，但是不会有断路器的逻辑
+     * @return
+     */
+    public String reTryOnly() {
+        log.info("通过自定义retry装饰...");
+        Supplier<String> retrySupplier = Retry.decorateSupplier(retry, remoteService::remoteAPI);
+        return Try.ofSupplier(retrySupplier)
+                .recover(throwable -> {
+                    log.info("retry三次后执行降级逻辑...");
+                    return "重试失败降级";
+                })
+                .get();
+    }
+
     private String fallback(Throwable throwable) {
         // 错误降级 和 延迟降级都会执行该逻辑
         log.error("执行断路器降级逻辑: {}", JSON.toJSONString(throwable));
@@ -70,7 +89,8 @@ public class CircuitBreakImpl implements LocalService {
     public String callRemote(int id) {
         remoteService.setId(id);
         // return onlyCircuitBreak();
-        return diyCircuitBreaker();
+        // return diyCircuitBreaker();
+        return reTryOnly();
     }
 
 
