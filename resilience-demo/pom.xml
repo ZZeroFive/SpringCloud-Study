@@ -36,10 +36,18 @@
             <version>0.9.0</version>
         </dependency>-->
 
-        <dependency>
+        <!--<dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>-->
+
+        <!-- https://mvnrepository.com/artifact/io.github.resilience4j/resilience4j-all -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-all</artifactId>
+            <version>1.7.1</version>
         </dependency>
+
 
         <!-- https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2 -->
         <dependency>
