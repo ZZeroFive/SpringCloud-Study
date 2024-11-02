@@ -4,6 +4,8 @@ package ml.spring.boot.breaker.config;
 import com.alibaba.fastjson2.JSON;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
+import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
+import io.github.resilience4j.bulkhead.ThreadPoolBulkheadConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
@@ -135,11 +137,10 @@ public class CircuitBreakerConfig {
         // 这是spring boot提供较为严格的限流 瞬时允许25个请求
         // spring boot提供的另外一个较为宽松的限流 20ms允许50个请求
 
-        // 这里设置0秒5个请求
+        // 这里设置2秒最多并发30个请求
         BulkheadConfig config = BulkheadConfig.custom()
-                .maxConcurrentCalls(1)
-                .maxWaitDuration(Duration.ZERO)
-                .fairCallHandlingStrategyEnabled(false)
+                .maxConcurrentCalls(5)
+                .maxWaitDuration(Duration.ofSeconds(2))
                 .build();
 
         Bulkhead bulkhead = Bulkhead.of("ristrictBulkhead", config);
@@ -151,4 +152,21 @@ public class CircuitBreakerConfig {
         return bulkhead;
     }
 
+    @Bean
+    @Qualifier("threadPoolBulkhead")
+    public ThreadPoolBulkhead threadPoolBulkhead() {
+        // 5核心 10最大线程 队列长度5
+        ThreadPoolBulkheadConfig config = ThreadPoolBulkheadConfig
+                .custom()
+                .maxThreadPoolSize(10)
+                .coreThreadPoolSize(5)
+                .queueCapacity(5)
+                .build();
+
+        ThreadPoolBulkhead bulkhead = ThreadPoolBulkhead.of("threadPoolBulkhead", config);
+        bulkhead.getEventPublisher()
+                .onCallRejected(event -> log.info("【舱壁限流-线程模式】 允许访问 {}", JSON.toJSONString(event)))
+                .onCallRejected(event -> log.info("【舱壁限流-线程模式】 拒绝访问 {}", JSON.toJSONString(event)));
+        return bulkhead;
+    }
 }
