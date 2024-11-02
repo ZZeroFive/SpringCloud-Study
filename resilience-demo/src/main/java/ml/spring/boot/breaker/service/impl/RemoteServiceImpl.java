@@ -32,6 +32,7 @@ public class RemoteServiceImpl implements RemoteService {
                 System.out.println("线程休眠异常!");
                 return "exception " + id;
             }
+            log.info("{}: 线程休眠时间到", tName);
         }
         return tName+ "--->" + id;
     }

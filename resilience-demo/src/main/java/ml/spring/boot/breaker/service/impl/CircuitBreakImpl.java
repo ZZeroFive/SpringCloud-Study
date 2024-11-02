@@ -10,11 +10,14 @@ import io.vavr.CheckedFunction0;
 import io.vavr.CheckedRunnable;
 import io.vavr.control.Try;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import ml.spring.boot.breaker.service.LocalService;
 import ml.spring.boot.breaker.service.RemoteService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -36,6 +39,7 @@ public class CircuitBreakImpl implements LocalService {
     private TimeLimiter limiter;
 
     @Autowired
+    @Qualifier("rateLimiter")
     private RateLimiter rateLimiter;
 
     @Autowired
@@ -115,7 +119,14 @@ public class CircuitBreakImpl implements LocalService {
         // limiter要求supplier返回future子类
         // 所以借助JDK CompletableFuture执行调用远程服务，会返回一个Future对象
         // 这个是异步运算
-        CompletableFuture<String> supplier = limiter.executeCompletionStage(scheduler, ()-> CompletableFuture.supplyAsync(remoteService::remoteAPI)).toCompletableFuture();
+        CompletableFuture<String> supplier = limiter
+                .executeCompletionStage(scheduler, ()-> CompletableFuture.supplyAsync(remoteService::remoteAPI))
+                .exceptionally(throwable -> {
+                    log.info("限时器执行异常: {}", JSON.toJSONString(throwable));
+                    return "异常降级结果";
+                })
+                .toCompletableFuture();
+
 
         return supplier.get();
     }
@@ -125,15 +136,26 @@ public class CircuitBreakImpl implements LocalService {
      * 超过的请求需要阻塞等待其他请求完成
      * @return
      */
+
+    Supplier<String> rateLimiterSupplier = null;
+    @PostConstruct
+    public void init() {
+        rateLimiterSupplier = RateLimiter.decorateSupplier(rateLimiter, remoteService::remoteAPI);
+    }
+    int count = 0;
     private String onlyRateLimiter() {
-        log.info("通过速率限制器装饰...");
+        count += 1;
+        log.info("通过速率限制器装饰... {}", count);
         // 装饰服务调用
-        CheckedRunnable restrictedCall = RateLimiter.decorateCheckedRunnable(rateLimiter, () -> {log.info("调用什么东西");});
+
         // 尝试调用
-        Try.run(restrictedCall)
-                .andThenTry(restrictedCall)
-                .onFailure(throwable -> log.info("再次调用前需要等待"));
-        return "";
+        return Try.ofSupplier(rateLimiterSupplier)
+                .recover(throwable -> {
+                    log.info("第{}次调用", count);
+                    return "限流降级结果" + count;
+                })
+                .onFailure(throwable -> log.info("再次调用前需要等待"))
+                .get();
     }
 
     /**
@@ -179,8 +201,8 @@ public class CircuitBreakImpl implements LocalService {
         // return reTryOnly();
         // return retryWithCircuitBreaker();
         // return onlyLimitTime();
-        // return onlyRateLimiter();
-        return onlyBulkhead();
+        return onlyRateLimiter();
+        // return onlyBulkhead();
     }
 
 

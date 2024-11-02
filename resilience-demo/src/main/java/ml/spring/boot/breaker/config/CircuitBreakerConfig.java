@@ -91,7 +91,7 @@ public class CircuitBreakerConfig {
     public TimeLimiter timeLimiter() {
         TimeLimiterConfig config = TimeLimiterConfig.custom()
                 .timeoutDuration(Duration.ofSeconds(1)) // 1秒调用
-                .cancelRunningFuture(true) // 取消运行?
+                .cancelRunningFuture(false) // 取消异步计算
                 .build();
         TimeLimiter limiter = TimeLimiter.of("timeLimiter", config);
 
@@ -111,9 +111,9 @@ public class CircuitBreakerConfig {
     @Qualifier("rateLimiter")
     public RateLimiter rateLimiter() {
         RateLimiterConfig config = RateLimiterConfig.custom()
-                .limitForPeriod(1) // 周期内最大的允许数
-                .limitRefreshPeriod(Duration.ofSeconds(1)) // 限流的时间周期 10秒内允许2个
-                .timeoutDuration(Duration.ofSeconds(5)) // 达到限流的速率后，调用者需要等待时间是多久
+                .limitRefreshPeriod(Duration.ofMinutes(3)) // 限流的时间周期 3分钟内允许10个
+                .timeoutDuration(Duration.ofMillis(100)) // 达到限流的速率后，调用者需要等待时间是多久
+                .limitForPeriod(10) // 周期内最大的允许数
                 .build();
 
         RateLimiter rateLimiter = RateLimiter.of("rateLimiter", config);
