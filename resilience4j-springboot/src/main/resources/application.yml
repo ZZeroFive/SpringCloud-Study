@@ -4,7 +4,37 @@ server:
 spring:
   application:
     name: resilience4j-springboot
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
 
 
-
+resilience4j:
+  circuitbreaker:
+    instances:
+      circuitBeakerService:
+        # 失败率阈值
+        failure-rate-threshold: 50
+        # 至少几次调用
+        minimum-number-of-calls: 5
+        # open-half open 自动切换
+        automatic-transition-from-open-to-half-open-enabled: true
+        # open-half open 自动切换等待时间
+        wait-duration-in-open-state: 5s
+        # half open 允许上游服务访问的个数
+        permitted-number-of-calls-in-half-open-state: 3
+        # 窗口大小
+        sliding-window-size: 10
+        # 窗口类型
+        sliding-window-type: count_based
 
