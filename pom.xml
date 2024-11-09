@@ -10,6 +10,7 @@
         <module>eureka-server</module>
         <module>user-service</module>
         <module>resilience-demo</module>
+        <module>resilience4j-springboot</module>
     </modules>
 
     <parent>
