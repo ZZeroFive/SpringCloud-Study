@@ -38,3 +38,13 @@ resilience4j:
         # 窗口类型
         sliding-window-type: count_based
 
+  retry:
+    instances:
+      retryApi:
+        max-attempts: 3
+        wait-duration: 5s
+    metrics:
+      legacy:
+        enabled: true
+      enabled: true
+

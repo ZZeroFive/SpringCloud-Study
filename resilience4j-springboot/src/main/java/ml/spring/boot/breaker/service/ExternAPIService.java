@@ -16,6 +16,7 @@ public class ExternAPIService {
 
 
     public String callApi(Integer id) {
+        log.info("三方服务被调用，请求参数: {}", id);
         if (id < 10) {
             try {
                 Thread.sleep(3_000);
